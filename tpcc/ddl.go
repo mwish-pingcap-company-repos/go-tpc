@@ -47,6 +47,7 @@ CREATE TABLE IF NOT EXISTS warehouse (
 	// District
 	query = `
 CREATE TABLE IF NOT EXISTS district (
+	d_pk BIGINT PRIMARY KEY, /* d_w_id(24)|d_id(8) */
 	d_id INT NOT NULL,
 	d_w_id INT NOT NULL,
 	d_name VARCHAR(10),
@@ -57,8 +58,7 @@ CREATE TABLE IF NOT EXISTS district (
 	d_zip CHAR(9),
 	d_tax DECIMAL(4, 4),
 	d_ytd DECIMAL(12, 2),
-	d_next_o_id INT,
-	PRIMARY KEY (d_w_id, d_id)
+	d_next_o_id INT
 )`
 
 	query = w.appendPartition(query, "d_w_id")
@@ -70,6 +70,7 @@ CREATE TABLE IF NOT EXISTS district (
 	// Customer
 	query = `
 CREATE TABLE IF NOT EXISTS customer (
+	c_pk BIGINT PRIMARY KEY, /* c_w_id(24)|c_d_id(8)|c_id(32) */ 
 	c_id INT NOT NULL, 
 	c_d_id INT NOT NULL,
 	c_w_id INT NOT NULL, 
@@ -91,7 +92,6 @@ CREATE TABLE IF NOT EXISTS customer (
 	c_payment_cnt INT, 
 	c_delivery_cnt INT, 
 	c_data VARCHAR(500),
-	PRIMARY KEY(c_w_id, c_d_id, c_id),
 	INDEX idx_customer (c_w_id, c_d_id, c_last, c_first)
 )`
 
@@ -103,7 +103,6 @@ CREATE TABLE IF NOT EXISTS customer (
 
 	query = `
 CREATE TABLE IF NOT EXISTS history (
-	row_id BINARY(16) NOT NULL,
 	h_c_id INT NOT NULL,
 	h_c_d_id INT NOT NULL,
 	h_c_w_id INT NOT NULL,
@@ -112,8 +111,9 @@ CREATE TABLE IF NOT EXISTS history (
 	h_date DATETIME,
 	h_amount DECIMAL(6, 2),
 	h_data VARCHAR(24),
-	PRIMARY KEY(h_w_id, row_id)
-)`
+	INDEX idx_h_w_id (h_w_id),
+	INDEX idx_h_c_w_id (h_c_w_id)
+) /*!90000 SHARD_ROW_ID_BITS=7 */`
 
 	query = w.appendPartition(query, "h_w_id")
 
@@ -123,10 +123,10 @@ CREATE TABLE IF NOT EXISTS history (
 
 	query = `
 CREATE TABLE IF NOT EXISTS new_order (
+	no_pk   BIGINT PRIMARY KEY, /* no_w_id(24)|no_d_id(8)|no_o_id(32) */
 	no_o_id INT NOT NULL,
 	no_d_id INT NOT NULL,
-	no_w_id INT NOT NULL,
-	PRIMARY KEY(no_w_id, no_d_id, no_o_id)
+	no_w_id INT NOT NULL
 )`
 
 	query = w.appendPartition(query, "no_w_id")
@@ -137,6 +137,7 @@ CREATE TABLE IF NOT EXISTS new_order (
 	// because order is a keyword, so here we use orders instead
 	query = `
 CREATE TABLE IF NOT EXISTS orders (
+	o_pk BIGINT PRIMARY KEY, /* o_w_id(24)|o_d_id(8)|o_id(24) */
 	o_id INT NOT NULL,
 	o_d_id INT NOT NULL,
 	o_w_id INT NOT NULL,
@@ -145,7 +146,6 @@ CREATE TABLE IF NOT EXISTS orders (
 	o_carrier_id INT,
 	o_ol_cnt INT,
 	o_all_local INT,
-	PRIMARY KEY(o_w_id, o_d_id, o_id),
 	INDEX idx_order (o_w_id, o_d_id, o_c_id, o_id)
 )`
 
@@ -156,6 +156,7 @@ CREATE TABLE IF NOT EXISTS orders (
 
 	query = `
 	CREATE TABLE IF NOT EXISTS order_line (
+		ol_pk BIGINT PRIMARY KEY, /* ol_w_id(24)|ol_d_id(8)|ol_o_id(24)|ol_number(8) */
 		ol_o_id INT NOT NULL,
 		ol_d_id INT NOT NULL,
 		ol_w_id INT NOT NULL,
@@ -165,8 +166,7 @@ CREATE TABLE IF NOT EXISTS orders (
 		ol_delivery_d DATETIME,
 		ol_quantity INT,
 		ol_amount DECIMAL(6, 2),
-		ol_dist_info CHAR(24),
-		PRIMARY KEY(ol_w_id, ol_d_id, ol_o_id, ol_number)
+		ol_dist_info CHAR(24)
 )`
 
 	query = w.appendPartition(query, "ol_w_id")
@@ -176,6 +176,7 @@ CREATE TABLE IF NOT EXISTS orders (
 
 	query = `
 CREATE TABLE IF NOT EXISTS stock (
+	s_pk BIGINT PRIMARY KEY, /* s_w_id(24)| pad(8) | s_i_id(32) */
 	s_i_id INT NOT NULL,
 	s_w_id INT NOT NULL,
 	s_quantity INT,
@@ -192,8 +193,7 @@ CREATE TABLE IF NOT EXISTS stock (
 	s_ytd INT, 
 	s_order_cnt INT, 
 	s_remote_cnt INT,
-	s_data VARCHAR(50),
-	PRIMARY KEY(s_w_id, s_i_id)
+	s_data VARCHAR(50)
 )`
 
 	query = w.appendPartition(query, "s_w_id")
@@ -241,4 +241,28 @@ func (w *Workloader) dropTable(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+func getDPK(d_w_id, d_id int) int64 {
+	return int64(d_w_id<<40 + d_id<<8)
+}
+
+func getCPK(c_w_id, c_d_id, c_id int) int64 {
+	return int64(c_w_id<<40 + c_d_id<<32 + c_id)
+}
+
+func getOPK(o_w_id, o_d_id, o_id int) int64 {
+	return int64(o_w_id<<40 + o_d_id<<32 + o_id<<8)
+}
+
+func getNOPK(no_w_id, no_d_id, no_o_id int) int64 {
+	return int64(no_w_id<<40 + no_d_id<<32 + no_o_id<<8)
+}
+
+func getOLPK(ol_w_id, ol_d_id, ol_o_id, ol_number int) int64 {
+	return int64(ol_w_id<<40 + ol_d_id<<32 + ol_o_id<<8 + ol_number)
+}
+
+func getSPK(s_w_id, s_i_id int) int64 {
+	return int64(s_w_id<<40 + s_i_id)
 }
