@@ -363,7 +363,7 @@ func (w *Workloader) checkCondition10(ctx context.Context, warehouse int) error 
 	query := `SELECT count(*) 
 	FROM (  SELECT  c.c_id, c.c_d_id, c.c_w_id, c.c_balance c1, 
 				   (SELECT sum(ol_amount) FROM orders STRAIGHT_JOIN order_line 
-					 WHERE OL_W_ID=O_W_ID 
+					 WHERE OL_PK BETWEEN ? AND ?
 					   AND OL_D_ID = O_D_ID 
 					   AND OL_O_ID = O_ID 
 					   AND OL_DELIVERY_D IS NOT NULL 
@@ -378,6 +378,7 @@ func (w *Workloader) checkCondition10(ctx context.Context, warehouse int) error 
    WHERE c1<>sm-smh`
 
 	rows, err := s.Conn.QueryContext(ctx, query,
+		getOLPK(warehouse, 0, 0, 0), getOLPK(warehouse+1, 0, 0, 0),
 		getOPK(warehouse, 0, 0), getOPK(warehouse+1, 0, 0),
 		warehouse,
 		getCPK(warehouse, 0, 0), getCPK(warehouse+1, 0, 0))

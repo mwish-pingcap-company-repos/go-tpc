@@ -40,7 +40,7 @@ ol_pk BETWEEN ? AND ? OR
 ol_pk BETWEEN ? AND ? OR 
 ol_pk BETWEEN ? AND ? OR 
 ol_pk BETWEEN ? and ? GROUP BY ol_d_id`
-	deliveryUpdateCustomer  = `UPDATE customer SET c_balance = c_balance + ?, c_delivery_cnt = c_delivery_cnt + 1 WHERE c_pk = ?`
+	deliveryUpdateCustomer = `UPDATE customer SET c_balance = c_balance + ?, c_delivery_cnt = c_delivery_cnt + 1 WHERE c_pk = ?`
 )
 
 func (w *Workloader) runDelivery(ctx context.Context, thread int) error {
